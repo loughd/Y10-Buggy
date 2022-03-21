@@ -7,9 +7,15 @@ int distance = 0; //declaring our variables
 ControlP5 p5; //declaring our p5 class
 Button GoButton;
 Button StopButton; //declaring our buttons
+PFont f;
+ControlFont font;
 
 void setup() {
   size(500,400); //output window size (length, width)
+  noStroke();
+  background(140, 130, 260);
+  f = createFont("Calibri", 30, true);
+  font = new ControlFont(f);
   p5 = new ControlP5(this); //creates p5 class
   Button GoButton = p5.addButton("Go");
   Button StopButton = p5.addButton("Stop"); //creates our buttons
@@ -20,7 +26,8 @@ void setup() {
 }
 
 void draw() {
-  background(250);
+  background(140, 130, 255);
+  textFont(f);
   textAlign(CENTER);
   drawType(width * 0.5);
   if (myClient.available() > 0) { //only reads in data while the server has data to give out
