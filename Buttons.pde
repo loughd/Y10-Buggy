@@ -9,17 +9,20 @@ Button GoButton;
 Button StopButton; //declaring our buttons
 
 void setup() {
-  size(800,600); //output window size (length, width)
+  size(500,400); //output window size (length, width)
   p5 = new ControlP5(this); //creates p5 class
   Button GoButton = p5.addButton("Go");
   Button StopButton = p5.addButton("Stop"); //creates our buttons
-  GoButton.setPosition(100,200).setSize(200,50);
-  StopButton.setPosition(400,200).setSize(200,50); //sets our buttons locations and sizes
+  GoButton.setPosition(width * 0.3,150).setSize(200,50);
+  StopButton.setPosition(width * 0.3,300).setSize(200,50); //sets our buttons locations and sizes
   myClient = new Client(this, "192.168.4.1", 80); //connects our client to the specified ip address in the wifi access point this machine is connected to
   myClient.write("I am a new client"); //required as the client must speak to the server first to initialise the connection
 }
 
 void draw() {
+  background(250);
+  textAlign(CENTER);
+  drawType(width * 0.5);
   if (myClient.available() > 0) { //only reads in data while the server has data to give out
     distance = myClient.read(); //reads in the distance measured by the ultrasonic sensor
     if (distance <= 15) {
@@ -31,4 +34,17 @@ void draw() {
 
 public void controlEvent(ControlEvent ev) {
   myClient.write(ev.getController().getName()); //writes to the server the name of the button that was just pressed
+  
+  /*if (ev.getController().getName() == "Go") {
+     distance = 20;
+   }
+   else if (ev.getController().getName() == "Stop") {
+     distance = 10;
+   }*/
+}
+
+void drawType(float x) {
+  text("Obstacle at: ", x, 50);
+  text(distance, x, 65);
+  fill(51);
 }
