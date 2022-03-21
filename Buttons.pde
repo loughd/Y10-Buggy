@@ -19,8 +19,8 @@ void setup() {
   p5 = new ControlP5(this); //creates p5 class
   Button GoButton = p5.addButton("Go");
   Button StopButton = p5.addButton("Stop"); //creates our buttons
-  GoButton.setPosition(width * 0.3,150).setSize(200,50);
-  StopButton.setPosition(width * 0.3,300).setSize(200,50); //sets our buttons locations and sizes
+  GoButton.setPosition(width * 0.3,150).setSize(200,50).setFont(font);
+  StopButton.setPosition(width * 0.3,300).setSize(200,50).setFont(font); //sets our buttons locations and sizes
   myClient = new Client(this, "192.168.4.1", 80); //connects our client to the specified ip address in the wifi access point this machine is connected to
   myClient.write("I am a new client"); //required as the client must speak to the server first to initialise the connection
 }
