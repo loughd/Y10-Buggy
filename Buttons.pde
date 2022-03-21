@@ -47,4 +47,11 @@ void drawType(float x) {
   text("Obstacle at: ", x, 50);
   text(distance, x, 65);
   fill(51);
+  if (distance < 25) {
+    text("Obstacle detected at: ", x, 80);
+    text(distance, x + 60 , 80);
+    fill(51);
+  } else {
+    text("No obstacle detected.", x, 80);
+  }
 }
