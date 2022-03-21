@@ -51,12 +51,13 @@ public void controlEvent(ControlEvent ev) {
 }
 
 void drawType(float x) {
-  text("Obstacle at: ", x, 50);
-  text(distance, x, 65);
+  text("Free space ahead: ", x, 30);
+  text(distance, x, 55);
   fill(51);
-  if (distance < 25) {
+  
+  if (distance < 20) {
     text("Obstacle detected at: ", x, 80);
-    text(distance, x + 60 , 80);
+    text(distance, x + 140 , 80);
     fill(51);
   } else {
     text("No obstacle detected.", x, 80);
