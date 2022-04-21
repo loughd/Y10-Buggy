@@ -1,6 +1,9 @@
 #include <MadgwickAHRS.h>
 #include <Arduino_LSM6DS3.h>
-
+#include <WiFiNINA.h>
+char ssid[] = "teamY10";
+char pass[] = "2E10Project";
+int connection = 0;
 const int LANA = 16;
 const int RANA = 17;
 
@@ -8,47 +11,59 @@ const int LDIG1 = 2;
 const int LDIG2 = 3;
 const int RDIG1 = 5;
 const int RDIG2 = 6;
+int nearRoll;
 
-double kp = 1;
-double ki = 0.00001;
-double kd = 0.1;
+double kp = 8;
+double ki = 0.0001;
+double kd = 0.01;
 
 int currentTime = 0;
 int elapsedTime = 0;
 int previousTime = 0;
 int error = 0;
-int setPoint = 80;
+int setPoint = 73;
 int cumError = 0;
 int rateError = 0;
 int lastError = 0;
 int sped = 0;
+int uploadTimer = 0;
+int prevUploadTime = 0;
+
+WiFiServer server(80); //creating server object
+String input;
 
 Madgwick filter;
-unsigned long microsPerReading, microsPrevious;
+unsigned long millisPerReading, millisPrevious;
 float accelScale, gyroScale;
 
-void Forward(int gX){
-  analogWrite(LANA, gX);
-  analogWrite(RANA, gX);
+void Backward(){
+  //analogWrite(LANA, );
+  //analogWrite(RANA, gX);
  
-  digitalWrite(LDIG1, LOW);
-  digitalWrite(LDIG2, HIGH);
-  digitalWrite(RDIG1, HIGH);
-  digitalWrite(RDIG2, LOW);
+  analogWrite(LDIG1, 0);
+  analogWrite(LDIG2, sped);
+  analogWrite(RDIG1, sped);
+  analogWrite(RDIG2, 0);
 }
 
-void Backward(int gX){
-  analogWrite(LANA, gX);
-  analogWrite(RANA, gX);
+void Forward(){
+  //analogWrite(LANA, gX);
+  //analogWrite(RANA, gX);
  
-  digitalWrite(LDIG1, HIGH);
-  digitalWrite(LDIG2, LOW);
-  digitalWrite(RDIG1, LOW);
-  digitalWrite(RDIG2, HIGH);
+  analogWrite(LDIG1, abs(sped));
+  analogWrite(LDIG2, 0);
+  analogWrite(RDIG1, 0);
+  analogWrite(RDIG2, abs(sped));
 }
 
 void setup() {
   Serial.begin(9600);
+  Serial.begin(9600);
+  WiFi.beginAP(ssid, pass); //starts access point
+  IPAddress ip = WiFi.localIP(); //finds local ip address of access point
+  //Serial.print("IP Address: "); 
+  //Serial.println(ip); //prints the local ip address to the arduino serial monitor, useful when debugging
+  server.begin(); //starts server
  
   pinMode(LDIG1, OUTPUT);
   pinMode(LDIG2, OUTPUT);
@@ -61,7 +76,7 @@ void setup() {
   IMU.begin();
   //IMU.setGyroRate(25);
   //IMU.setAccelerometerRate(25);
-  filter.begin(25);
+  filter.begin(1);
 
   // Set the accelerometer range to 2 g
   //IMU.setAccelerometerRange(2);
@@ -69,23 +84,23 @@ void setup() {
   //IMU.setGyroRange(250);
 
   // initialize variables to pace updates to correct rate
-  microsPerReading = 1000000 / 25;
-  microsPrevious = micros();
+  millisPerReading = 16;
+  millisPrevious = millis();
 }
 
 void loop() {
- 
+  
   float aX, aY, aZ;
   float gX, gY, gZ;
   float ax, ay, az;
   float gx, gy, gz;
   float roll, pitch, heading;
-  unsigned long microsNow;
+  unsigned long millisNow;
 
   // check if it's time to read data and update the filter
-  microsNow = micros();
- 
-  if (microsNow - microsPrevious >= microsPerReading) {
+  millisNow = millis();
+  
+  if (millisNow - millisPrevious >= 12) {
  
   // read raw data from CurieIMU
      if(IMU.accelerationAvailable() && IMU.gyroscopeAvailable()){
@@ -107,21 +122,34 @@ void loop() {
     roll = filter.getRoll();
     pitch = filter.getPitch();
     heading = filter.getYaw();
-    //Serial.print("Orientation: ");
-    //Serial.print(heading);
-    //Serial.print(" ");
-    //Serial.print(pitch);
-    //Serial.print(" ");
+    Serial.print("Orientation: ");
+    Serial.print(heading);
+    Serial.print(" ");
+    Serial.print(pitch);
+    Serial.print(" ");
     Serial.println(roll);
+    nearRoll = round(roll);
+    Serial.println(nearRoll);
 
     sped = computePID(roll);
 
-    if (sped > 0)
-     Forward(sped);
-    else Backward(abs(sped));
+    if (sped > 0) Forward();
+    else Backward();
 
     // increment previous time, so we keep proper pace
-    microsPrevious = microsPrevious + microsPerReading;
+    millisPrevious = millisPrevious + millisPerReading;
+  } 
+  WiFiClient client = server.available(); //finds a client connected to the server with data available for the server to read
+  if (client.connected()) {
+  //Serial.println("Client Connected");
+    connection = 1; //sets the connection variable to avoid getting trapped in a while loop
+  }
+  uploadTimer = millis() - prevUploadTime;
+  if (uploadTimer >= 250) {
+    if (connection == 1) {
+      server.write(nearRoll);
+    }
+    prevUploadTime = prevUploadTime + uploadTimer;
   }
 }
 
@@ -139,7 +167,7 @@ float convertRawGyro(float gRaw) {
   // -250 maps to a raw value of -32768
   // +250 maps to a raw value of 32767
  
-  float g = (gRaw * 250.0) / 32768.0;
+  float g = (gRaw * 500.0) / 32768.0;
   return g;
 }
 
