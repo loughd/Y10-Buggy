@@ -1,6 +1,7 @@
 #include <WiFiNINA.h>
 #include <SPI.h>
 
+
 char ssid[] = "TeamY10";        
 char pass[] = "2E10Project";
 
