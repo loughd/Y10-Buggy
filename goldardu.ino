@@ -1,17 +1,5 @@
-#include <WiFiNINA.h>
-#include <SPI.h>
-
-
-char ssid[] = "TeamY10";        
-char pass[] = "2E10Project";
-
-WiFiServer server(80);
-
-const int US_TRIG = 8;
-const int US_ECHO = 9;
-
-const int LEYE = 10;
-const int REYE = 11;
+#include <MadgwickAHRS.h>
+#include <Arduino_LSM6DS3.h>
 
 const int LANA = 16;
 const int RANA = 17;
@@ -21,147 +9,151 @@ const int LDIG2 = 3;
 const int RDIG1 = 5;
 const int RDIG2 = 6;
 
-char x = 'a';
+double kp = 1;
+double ki = 0.00001;
+double kd = 0.1;
 
-bool L_EYE() {
-  if (digitalRead(LEYE) == HIGH) return true;
-  else return false;
-}
+int currentTime = 0;
+int elapsedTime = 0;
+int previousTime = 0;
+int error = 0;
+int setPoint = 80;
+int cumError = 0;
+int rateError = 0;
+int lastError = 0;
+int sped = 0;
 
-bool R_EYE() {
-  if (digitalRead(REYE) == HIGH) return true;
-  else return false;
-}
+Madgwick filter;
+unsigned long microsPerReading, microsPrevious;
+float accelScale, gyroScale;
 
-void Stop(){
+void Forward(int gX){
+  analogWrite(LANA, gX);
+  analogWrite(RANA, gX);
+ 
   digitalWrite(LDIG1, LOW);
-  digitalWrite(LDIG2, LOW);
-  digitalWrite(RDIG1, LOW);
+  digitalWrite(LDIG2, HIGH);
+  digitalWrite(RDIG1, HIGH);
   digitalWrite(RDIG2, LOW);
 }
 
-void Right(){
-  analogWrite(LANA, 169);
-  analogWrite(RANA, 69);
-  
-  digitalWrite(LDIG1, LOW);
-  digitalWrite(LDIG2, HIGH);
-  digitalWrite(RDIG1, HIGH);
-  digitalWrite(RDIG2, LOW);  
-}
-
-void Left(){
-  analogWrite(LANA, 69);
-  analogWrite(RANA, 169);
-  
-  digitalWrite(LDIG1, LOW);
-  digitalWrite(LDIG2, HIGH);
-  digitalWrite(RDIG1, HIGH);
-  digitalWrite(RDIG2, LOW);  
-}
-
-void Forward(int x){
-  analogWrite(LANA, 100+(10*x));
-  analogWrite(RANA, 100+(10*x));
-  
-  digitalWrite(LDIG1, LOW);
-  digitalWrite(LDIG2, HIGH);
-  digitalWrite(RDIG1, HIGH);
-  digitalWrite(RDIG2, LOW);  
-}
-
-void Backward(){
-  analogWrite(LANA, 100);
-  analogWrite(RANA, 100);
-  
+void Backward(int gX){
+  analogWrite(LANA, gX);
+  analogWrite(RANA, gX);
+ 
   digitalWrite(LDIG1, HIGH);
   digitalWrite(LDIG2, LOW);
   digitalWrite(RDIG1, LOW);
   digitalWrite(RDIG2, HIGH);
 }
 
-
-
 void setup() {
-  Serial.begin( 9600 );
-  pinMode(US_TRIG, OUTPUT);
-  pinMode(US_ECHO, INPUT);
-  
+  Serial.begin(9600);
+ 
   pinMode(LDIG1, OUTPUT);
   pinMode(LDIG2, OUTPUT);
   pinMode(RDIG1, OUTPUT);
   pinMode(RDIG2, OUTPUT);
   pinMode(LANA, OUTPUT);
   pinMode(RANA, OUTPUT);
-  
-  WiFi.beginAP(ssid, pass);
-  delay(10000);
-  server.begin();
-  IPAddress ip = WiFi.localIP();
-  Serial.println(ip);
-  
-  //attachInterrupt( digitalPinToInterrupt(LEYE), ir_isrL, FALLING);
-  pinMode(LEYE, INPUT);
-  //attachInterrupt( digitalPinToInterrupt(REYE), ir_isrR, FALLING);
-  pinMode(REYE, INPUT);
+ 
+  // start the IMU and filter
+  IMU.begin();
+  //IMU.setGyroRate(25);
+  //IMU.setAccelerometerRate(25);
+  filter.begin(25);
+
+  // Set the accelerometer range to 2 g
+  //IMU.setAccelerometerRange(2);
+  // Set the gyroscope range to 250 degrees/second
+  //IMU.setGyroRange(250);
+
+  // initialize variables to pace updates to correct rate
+  microsPerReading = 1000000 / 25;
+  microsPrevious = micros();
 }
-//void ir_isrL(){
+
+void loop() {
  
-  //analogWrite(LANA, 0);
-//}
+  float aX, aY, aZ;
+  float gX, gY, gZ;
+  float ax, ay, az;
+  float gx, gy, gz;
+  float roll, pitch, heading;
+  unsigned long microsNow;
 
-//void ir_isrR(){
+  // check if it's time to read data and update the filter
+  microsNow = micros();
+ 
+  if (microsNow - microsPrevious >= microsPerReading) {
+ 
+  // read raw data from CurieIMU
+     if(IMU.accelerationAvailable() && IMU.gyroscopeAvailable()){
+  IMU.readAcceleration(aX, aY, aZ);
+  IMU.readGyroscope(gX, gY, gZ);
+     }
+    // convert from raw data to gravity and degrees/second units
+    ax = convertRawAcceleration(aX);
+    ay = convertRawAcceleration(aY);
+    az = convertRawAcceleration(aZ);
+    gx = convertRawGyro(gX);
+    gy = convertRawGyro(gY);
+    gz = convertRawGyro(gZ);
+ 
+    // update the filter, which computes orientation
+    filter.updateIMU(gx, gy, gz, ax, ay, az);
 
-  //analogWrite(RANA, 0);
-//}
+    // print the heading, pitch and roll
+    roll = filter.getRoll();
+    pitch = filter.getPitch();
+    heading = filter.getYaw();
+    //Serial.print("Orientation: ");
+    //Serial.print(heading);
+    //Serial.print(" ");
+    //Serial.print(pitch);
+    //Serial.print(" ");
+    Serial.println(roll);
 
+    sped = computePID(roll);
 
-void loop(){
-  //int RIR = digitalRead(REYE);
-  //int LIR = digitalRead(LEYE); 
-  //int RSPEED = 150/(1+exp(-3*RIR));
-  //int LSPEED = 150/(1+exp(-3*LIR));
-  
-  
-  WiFiClient client = server.available();
-  if(client.connected()){
-    x = client.read();
+    if (sped > 0)
+     Forward(sped);
+    else Backward(abs(sped));
+
+    // increment previous time, so we keep proper pace
+    microsPrevious = microsPrevious + microsPerReading;
   }
-  
-  delay(100);   
-  if (x == 'b'){
- 
-  int distance;
-  long duration;
- 
-  digitalWrite( US_TRIG, LOW );
-  delayMicroseconds(10);
-  digitalWrite( US_TRIG, HIGH );
-  delayMicroseconds( 50 );
-  digitalWrite( US_TRIG, LOW );
-
-  duration = pulseIn( US_ECHO, HIGH, 5600);
-
-  distance = duration/58;
-
-  WiFiClient client = server.available();
-  if(client)
-  if(client.connected()){
-    client.println(distance);
-  }
-  
-  if (L_EYE() && R_EYE()) Forward(distance-15);
-  
-  else if (R_EYE() && !L_EYE()) Left();
-  
-  else if (!R_EYE() && L_EYE()) Right();
-  
-  else Stop();  
-
-  Serial.println(distance);
-
 }
-  else if (x == 'a') Stop();
 
- }
-    
+float convertRawAcceleration(float aRaw) {
+  // since we are using 2 g range
+  // -2 g maps to a raw value of -32768
+  // +2 g maps to a raw value of 32767
+ 
+  float a = (aRaw * 2.0) / 32768.0;
+  return a;
+}
+
+float convertRawGyro(float gRaw) {
+  // since we are using 250 degrees/seconds range
+  // -250 maps to a raw value of -32768
+  // +250 maps to a raw value of 32767
+ 
+  float g = (gRaw * 250.0) / 32768.0;
+  return g;
+}
+
+double computePID(double inp){    
+  currentTime = millis();                //get current time
+  elapsedTime = (double)(currentTime - previousTime);        //compute time elapsed from previous computation
+       
+  error = setPoint - inp;                                // determine error
+  cumError += error * elapsedTime;                // compute integral
+  rateError = (error - lastError)/elapsedTime;   // compute derivative
+ 
+  double out = (kp*error + ki*cumError + kd*rateError);                //PID output              
+  Serial.println(out);
+  lastError = error;                                //remember current error
+  previousTime = currentTime;                        //remember current time
+  return out;
+}
