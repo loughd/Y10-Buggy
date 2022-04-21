@@ -1,24 +1,36 @@
-
-float angle;
-float jitter;
+float roll = 90;
 
 void setup() {
-  size(640, 360);
-  noStroke();
-  fill(255);
-  rectMode(CENTER);
+  size(600, 600, P2D); 
+  //rectMode(CENTER);
 }
 
 void draw() {
-  background(51);
-
-  // during even-numbered seconds (0, 2, 4, 6...)
-  if (second() % 2 == 0) {  
-    jitter = random(-0.1, 0.1);
+  background(140, 130, 260);
+  pushMatrix();
+  translate(300, 300);
+  rotate(radians(roll));
+  //translate(300, 300);
+  drawArduino();
+  
+  popMatrix();
+  if (keyPressed == true) {
+    if (key == 'h') roll = roll + 1.5; 
+    if (key == 'g') roll = roll - 1.5;
   }
-  angle = angle + jitter;
-  float c = cos(angle);
-  translate(width/2, height/2);
-  rotate(c);
-  rect(0, 0, 180, 180);   
+  
+}
+
+void drawArduino() {
+  stroke(0, 90, 90);
+  fill(200, 200, 200);
+  rect(-50, -50, 100, 280);
+  
+  stroke(0, 0, 0);
+  fill(0, 0, 0);
+  circle(0, 0, 140);
+  
+  stroke(255, 255, 0);
+  fill(255,255,0);
+  circle(0,0,120);
 }
